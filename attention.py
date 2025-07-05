@@ -16,4 +16,20 @@ class SelfAttention(nn.Module):
         batch_size, sequence_length, d_embed = input_shape
         interim_shape=(batch_size, sequence_length, self.n_heads, self.d_head)
         q,k,v=self.in_proj(x).chunk(3,dim=-1)
-        q=
+        q=q.view(interim_shape).transpose(1,2)
+        k=k.view(interim_shape).transpose(1,2)
+        v=v.view(interim_shape).transpose(1,2)
+
+        weight=q@k.transpose(-1,-2)
+        if(casual_mask):
+            mask=torch.ones_like(weight, dtype=torch.bool).triu(1)
+            weight.masked_fill_(mask, -torch.inf)
+        
+        weight=weight/math.sqrt(self.d_head)
+        weight=F.softmax(weight,dim=-1)
+        output=weight@v
+        output=output.transpose(1,2)
+        output=output.reshape(input_shape)
+        output=self.out_proj(output)
+        return output
+
